@@ -8,6 +8,10 @@
 
 #import "YTKRequest.h"
 
+
+/**
+ XXXAPI这一层重写父类的方法，参数 请求地址 数据处理 。。。
+ */
 @interface RegisterApi : YTKRequest
 
 - (id)initWithUsername:(NSString *)username password:(NSString *)password;

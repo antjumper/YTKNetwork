@@ -20,11 +20,19 @@
 //  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 //  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 //  THE SOFTWARE.
-
+/// 所有对外接口的实现  以及一些公共的逻辑  都在当前类
 #import <Foundation/Foundation.h>
 
-NS_ASSUME_NONNULL_BEGIN
+NS_ASSUME_NONNULL_BEGIN   //这个是给所有的属性加上 nullable
 
+/*
+ FOUNDATION_EXPORT 这个和#define是差不多的 但是更加实用
+ 使用第一种方法在检测字符串的值是否相等的时候更快.对于第一种你可以直接使用(stringInstance == MyFirstConstant)来比较,而define则使用的是这种.([stringInstance isEqualToString:MyFirstConstant])
+ 
+ 文／叶孤城___（简书作者）
+ 原文链接：http://www.jianshu.com/p/f547eb0368c4
+ 著作权归作者所有，转载请联系作者获得授权，并标注“简书作者”。
+ */
 FOUNDATION_EXPORT NSString *const YTKRequestValidationErrorDomain;
 
 NS_ENUM(NSInteger) {
@@ -32,40 +40,40 @@ NS_ENUM(NSInteger) {
     YTKRequestValidationErrorInvalidJSONFormat = -9,
 };
 
-///  HTTP Request method.
+///  HTTP Request method.  请求的类别
 typedef NS_ENUM(NSInteger, YTKRequestMethod) {
-    YTKRequestMethodGET = 0,
-    YTKRequestMethodPOST,
-    YTKRequestMethodHEAD,
-    YTKRequestMethodPUT,
-    YTKRequestMethodDELETE,
-    YTKRequestMethodPATCH,
+    YTKRequestMethodGET = 0,//get请求
+    YTKRequestMethodPOST,//post请求
+    YTKRequestMethodHEAD,//只返回header的请求
+    YTKRequestMethodPUT,//更新资源的请求
+    YTKRequestMethodDELETE,//删除资源的请求
+    YTKRequestMethodPATCH,//对put的补充 更新部分资源
 };
 
-///  Request serializer type.
+///  Request serializer type.  请求的序列化方式
 typedef NS_ENUM(NSInteger, YTKRequestSerializerType) {
-    YTKRequestSerializerTypeHTTP = 0,
-    YTKRequestSerializerTypeJSON,
+    YTKRequestSerializerTypeHTTP = 0,//二进制的方式
+    YTKRequestSerializerTypeJSON,//json的方式
 };
 
 ///  Response serializer type, which determines response serialization process and
-///  the type of `responseObject`.
+///  the type of `responseObject`. 返回数据的序列化方式
 typedef NS_ENUM(NSInteger, YTKResponseSerializerType) {
     /// NSData type
-    YTKResponseSerializerTypeHTTP,
+    YTKResponseSerializerTypeHTTP,//二进制的方式
     /// JSON object type
-    YTKResponseSerializerTypeJSON,
+    YTKResponseSerializerTypeJSON,//json对象
     /// NSXMLParser type
-    YTKResponseSerializerTypeXMLParser,
+    YTKResponseSerializerTypeXMLParser,//XML的方式
 };
 
-///  Request priority
+///  Request priority  对请求的优先级的设置
 typedef NS_ENUM(NSInteger, YTKRequestPriority) {
     YTKRequestPriorityLow = -4L,
     YTKRequestPriorityDefault = 0,
     YTKRequestPriorityHigh = 4,
 };
-
+//af中的一个协议 但是不太明白是干嘛的
 @protocol AFMultipartFormData;
 
 typedef void (^AFConstructingBlock)(id<AFMultipartFormData> formData);
@@ -73,7 +81,7 @@ typedef void (^AFURLSessionTaskProgressBlock)(NSProgress *);
 
 @class YTKBaseRequest;
 
-typedef void(^YTKRequestCompletionBlock)(__kindof YTKBaseRequest *request);
+typedef void(^YTKRequestCompletionBlock)(__kindof YTKBaseRequest *request);//xcode7:__kindof:表示当前类或者子类
 
 ///  The YTKRequestDelegate protocol defines several optional methods you can use
 ///  to receive network-related messages. All the delegate methods will be called
@@ -84,12 +92,12 @@ typedef void(^YTKRequestCompletionBlock)(__kindof YTKBaseRequest *request);
 ///  Tell the delegate that the request has finished successfully.
 ///
 ///  @param request The corresponding request.
-- (void)requestFinished:(__kindof YTKBaseRequest *)request;
+- (void)requestFinished:(__kindof YTKBaseRequest *)request;//请求成功的代理
 
 ///  Tell the delegate that the request has failed.
 ///
 ///  @param request The corresponding request.
-- (void)requestFailed:(__kindof YTKBaseRequest *)request;
+- (void)requestFailed:(__kindof YTKBaseRequest *)request;//请求失败的回调
 
 @end
 
@@ -97,6 +105,7 @@ typedef void(^YTKRequestCompletionBlock)(__kindof YTKBaseRequest *request);
 ///  used to track the status of a request. Objects that conforms this protocol
 ///  ("accessories") can perform additional configurations accordingly. All the
 ///  accessory methods will be called on the main queue.
+///一个请求辅助的协议 用于追踪请求的状态
 @protocol YTKRequestAccessory <NSObject>
 
 @optional
@@ -104,18 +113,24 @@ typedef void(^YTKRequestCompletionBlock)(__kindof YTKBaseRequest *request);
 ///  Inform the accessory that the request is about to start.
 ///
 ///  @param request The corresponding request.
+///通知辅助类 request的请求将要开始
+    
 - (void)requestWillStart:(id)request;
 
 ///  Inform the accessory that the request is about to stop. This method is called
 ///  before executing `requestFinished` and `successCompletionBlock`.
 ///
 ///  @param request The corresponding request.
+///通知辅助类 request的请求将要停止了
+    
 - (void)requestWillStop:(id)request;
 
 ///  Inform the accessory that the request has already stoped. This method is called
 ///  after executing `requestFinished` and `successCompletionBlock`.
 ///
 ///  @param request The corresponding request.
+///通知辅助类 request的请求已经停止了
+
 - (void)requestDidStop:(id)request;
 
 @end
@@ -149,7 +164,7 @@ typedef void(^YTKRequestCompletionBlock)(__kindof YTKBaseRequest *request);
 ///  The response header fields.
 @property (nonatomic, strong, readonly, nullable) NSDictionary *responseHeaders;
 
-///  The raw data representation of response. Note this value can be nil if request failed.
+///  The raw(未经加工的) data representation of response. Note this value can be nil if request failed.
 @property (nonatomic, strong, readonly, nullable) NSData *responseData;
 
 ///  The string representation of response. Note this value can be nil if request failed.
@@ -185,7 +200,8 @@ typedef void(^YTKRequestCompletionBlock)(__kindof YTKBaseRequest *request);
 ///  Tag can be used to identify request. Default value is 0.
 @property (nonatomic) NSInteger tag;
 
-///  The userInfo can be used to store additional info about the request. Default is nil.
+
+/// 存储请求的额外信息 The userInfo can be used to store additional info about the request. Default is nil.
 @property (nonatomic, strong, nullable) NSDictionary *userInfo;
 
 ///  The delegate object of the request. If you choose block style callback you can ignore this.

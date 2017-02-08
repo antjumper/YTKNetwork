@@ -61,22 +61,30 @@
 - (instancetype)init {
     self = [super init];
     if (self) {
+        //配置的初始化
         _config = [YTKNetworkConfig sharedConfig];
+        //初始化一个af 中的 AFHTTPSessionManager
         _manager = [[AFHTTPSessionManager alloc] initWithSessionConfiguration:_config.sessionConfiguration];
+        //管理的请求的记录
         _requestsRecord = [NSMutableDictionary dictionary];
+        //生成一个并发执行的队列  如果第二个参数设置为DISPATCH_QUEUE_SERIAL或者NULL，意味着创建了一个串行队列
         _processingQueue = dispatch_queue_create("com.yuantiku.networkagent.processing", DISPATCH_QUEUE_CONCURRENT);
+        //为啥创建的集合是从100开始的
         _allStatusCodes = [NSIndexSet indexSetWithIndexesInRange:NSMakeRange(100, 500)];
         pthread_mutex_init(&_lock, NULL);
 
+        //安全协议的初始化
         _manager.securityPolicy = _config.securityPolicy;
+        //创建相应的序列串类型
         _manager.responseSerializer = [AFHTTPResponseSerializer serializer];
-        // Take over the status code validation
+        // Take over the status code validation 接管状态验证码
         _manager.responseSerializer.acceptableStatusCodes = _allStatusCodes;
+        //完成队列 的配置
         _manager.completionQueue = _processingQueue;
     }
     return self;
 }
-
+//json序列化的懒加载
 - (AFJSONResponseSerializer *)jsonResponseSerializer {
     if (!_jsonResponseSerializer) {
         _jsonResponseSerializer = [AFJSONResponseSerializer serializer];
@@ -85,7 +93,7 @@
     }
     return _jsonResponseSerializer;
 }
-
+//xml序列化的懒加载
 - (AFXMLParserResponseSerializer *)xmlParserResponseSerialzier {
     if (!_xmlParserResponseSerialzier) {
         _xmlParserResponseSerialzier = [AFXMLParserResponseSerializer serializer];
@@ -94,7 +102,7 @@
     return _xmlParserResponseSerialzier;
 }
 
-#pragma mark -
+#pragma mark - 返回当前url的字符串
 
 - (NSString *)buildRequestUrl:(YTKBaseRequest *)request {
     NSParameterAssert(request != nil);
@@ -105,13 +113,13 @@
     if (temp && temp.host && temp.scheme) {
         return detailUrl;
     }
-    // Filter URL if needed
+    // Filter URL if needed  过滤url的地方 不太明白
     NSArray *filters = [_config urlFilters];
     for (id<YTKUrlFilterProtocol> f in filters) {
         detailUrl = [f filterUrl:detailUrl withRequest:request];
     }
 
-    NSString *baseUrl;
+    NSString *baseUrl;  //如果使用了 useCDN
     if ([request useCDN]) {
         if ([request cdnUrl].length > 0) {
             baseUrl = [request cdnUrl];
@@ -134,7 +142,7 @@
 
     return [NSURL URLWithString:detailUrl relativeToURL:url].absoluteString;
 }
-
+//请求序列化的处理 里面主要是调用了一些request里面的 公共需要重写的函数
 - (AFHTTPRequestSerializer *)requestSerializerForRequest:(YTKBaseRequest *)request {
     AFHTTPRequestSerializer *requestSerializer = nil;
     if (request.requestSerializerType == YTKRequestSerializerTypeHTTP) {
@@ -165,17 +173,25 @@
 }
 
 - (NSURLSessionTask *)sessionTaskForRequest:(YTKBaseRequest *)request error:(NSError * _Nullable __autoreleasing *)error {
+    //获取请求的类型
     YTKRequestMethod method = [request requestMethod];
+    //获取请求的url
     NSString *url = [self buildRequestUrl:request];
+    //请求的参数
     id param = request.requestArgument;
+    //对着一块不是很熟悉。。。。
     AFConstructingBlock constructingBlock = [request constructingBodyBlock];
+    
+    //请求序列化
     AFHTTPRequestSerializer *requestSerializer = [self requestSerializerForRequest:request];
 
     switch (method) {
         case YTKRequestMethodGET:
             if (request.resumableDownloadPath) {
+                //带有存储路径的请求 生成一个task 对应的task
                 return [self downloadTaskWithDownloadPath:request.resumableDownloadPath requestSerializer:requestSerializer URLString:url parameters:param progress:request.resumableDownloadProgressBlock error:error];
             } else {
+                //不带存储路径的 生成一个task 对应的task
                 return [self dataTaskWithHTTPMethod:@"GET" requestSerializer:requestSerializer URLString:url parameters:param error:error];
             }
         case YTKRequestMethodPOST:
@@ -300,7 +316,15 @@
     }
 
     YTKLog(@"Finished Request: %@", NSStringFromClass([request class]));
-
+/*
+ - (BOOL) doSomething:(NSError **) error;  //此处必须用**,若使用单*参数只是值复制类似error = p,两个指针指向内存位置相同但是两个指针的地址不同，对error指针修改，其实p的指向并没有改变 其实就是 --- 指针的指针error指向指针p。
+ 
+ 在使用ARC的时候参数NSError**会被转换成NSError *_ _autoreleasing *，
+ 
+ NSError *error = nil;
+ 
+ BOOL ret = [self doSomething:&error]
+ */
     NSError * __autoreleasing serializationError = nil;
     NSError * __autoreleasing validationError = nil;
 
@@ -341,7 +365,7 @@
     } else {
         [self requestDidFailWithRequest:request error:requestError];
     }
-
+    // 把 request 的回调block给清空了 这个亮了 并且是在主线程中使用的
     dispatch_async(dispatch_get_main_queue(), ^{
         [self removeRequestFromRecord:request];
         [request clearCompletionBlock];

@@ -13,6 +13,9 @@
     UIImage *_image;
 }
 
+/**
+ 这个上传图片api的初始化方法
+ */
 - (id)initWithImage:(UIImage *)image {
     self = [super init];
     if (self) {
@@ -21,9 +24,17 @@
     return self;
 }
 
+/**
+ 这个上传图片api的初始化方法
+ */
+
 - (YTKRequestMethod)requestMethod {
     return YTKRequestMethodPOST;
 }
+
+/**
+ 请求的URL
+ */
 
 - (NSString *)requestUrl {
     return @"/iphone/image/upload";
